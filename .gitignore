@@ -1,0 +1,14 @@
+# Secrets and local settings: keep these off GitHub.
+web/config.php
+tools/publish.conf
+
+# Gallery database (lives on the server; never uploaded by publish.sh)
+web/data/*.sqlite*
+
+# PlatformIO build output (also covered by cycle_pov_sword/.gitignore)
+.pio/
+
+# Host test binary
+test_rx
+
+.DS_Store

@@ -1,0 +1,9 @@
+{
+  // Open this file in VS Code (File > Open Workspace from File...). The repo
+  // root gives the deploy tasks; cycle_pov_sword is its own folder so the
+  // PlatformIO extension finds platformio.ini.
+  "folders": [
+    { "name": "povsword", "path": "." },
+    { "name": "firmware (cycle_pov_sword)", "path": "cycle_pov_sword" }
+  ]
+}

@@ -1,0 +1,480 @@
+<title>POV Sword Uplink</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: workbench — drawing grid on the left, optical transmitter on the right; stacks on phones. */
+:root {
+  --bg: #e9ecef;          /* bench grey, slight blue bias */
+  --panel: #f8f9fa;
+  --line: #cfd5db;
+  --fg: #1b2026;
+  --mut: #5d6773;
+  --led: #e0451f;         /* red LED, the sword's own colour */
+  --led-dim: #f3d2c8;
+  --off: #d7dce1;
+  --ok: #1f7a4d;
+  --bad: #b3261e;
+  --display: "Chakra Petch", "Arial Narrow", system-ui, sans-serif;
+  --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121519; --panel: #1a1e23; --line: #2c333b; --fg: #e6e9ed; --mut: #93a0ad;
+    --led: #ff5a2e; --led-dim: #4a2217; --off: #262c33; --ok: #4cc38a; --bad: #ff7b72;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121519; --panel: #1a1e23; --line: #2c333b; --fg: #e6e9ed; --mut: #93a0ad;
+  --led: #ff5a2e; --led-dim: #4a2217; --off: #262c33; --ok: #4cc38a; --bad: #ff7b72;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { min-height: 100%; }
+body {
+  background: var(--bg); color: var(--fg); font: 15px/1.5 var(--body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 32px;
+}
+.wrap { max-width: 1040px; margin: 0 auto; display: grid; gap: 20px; }
+header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; }
+h1 { font: 700 26px/1.1 var(--display); letter-spacing: .02em; margin: 0; text-transform: uppercase; }
+header p { margin: 0; color: var(--mut); }
+h2 { font: 600 12px/1 var(--display); letter-spacing: .14em; text-transform: uppercase; color: var(--mut); margin: 0; }
+
+.bench { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 760px) { .bench { grid-template-columns: minmax(0, 1fr); } }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; display: grid; gap: 14px; min-width: 0; }
+
+/* ---- editor ---- */
+.editor { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: start; }
+.grid {
+  display: grid; grid-template-columns: repeat(12, 1fr); gap: 4px; touch-action: none; user-select: none;
+  aspect-ratio: 1; max-width: 100%;
+}
+.cell {
+  border: 0; padding: 0; border-radius: 50%; background: var(--off); cursor: crosshair; aspect-ratio: 1;
+  transition: background-color .08s, box-shadow .08s;
+}
+.cell.on { background: var(--led); box-shadow: 0 0 10px -2px var(--led); }
+.cell:focus-visible { outline: 2px solid var(--fg); outline-offset: 1px; }
+.parity { display: grid; grid-template-rows: repeat(12, 1fr); gap: 4px; height: 100%; }
+.parity span {
+  font: 500 11px/1 var(--mono); color: var(--mut); display: grid; place-items: center; min-width: 22px;
+  border-left: 1px dashed var(--line);
+}
+.parity span.one { color: var(--led); }
+.legend { display: flex; justify-content: space-between; gap: 12px; font: 12px/1.4 var(--mono); color: var(--mut); flex-wrap: wrap; }
+
+.tools { display: flex; flex-wrap: wrap; gap: 6px; }
+button {
+  font: 500 13px/1 var(--body); color: var(--fg); background: transparent; border: 1px solid var(--line);
+  border-radius: 6px; padding: 9px 12px; cursor: pointer;
+}
+button:hover { border-color: var(--mut); }
+button:focus-visible { outline: 2px solid var(--led); outline-offset: 2px; }
+button:disabled { opacity: .4; cursor: not-allowed; }
+button.primary {
+  background: var(--led); border-color: var(--led); color: #fff; font: 700 15px/1 var(--display);
+  letter-spacing: .08em; text-transform: uppercase; padding: 14px 22px;
+}
+button.sym { font-family: var(--mono); min-width: 38px; }
+.sep { width: 1px; background: var(--line); margin: 2px 4px; }
+
+/* ---- transmitter ---- */
+.target {
+  background: #000; border-radius: 8px; aspect-ratio: 1; width: 100%; max-width: 100%;
+  display: grid; place-items: center; position: relative; border: 1px solid var(--line);
+}
+.target.white { background: #fff; }
+.target .hint { color: #555; font: 12px/1.4 var(--mono); text-align: center; padding: 12px; pointer-events: none; }
+.target.busy .hint { visibility: hidden; }
+.reticle { position: absolute; width: 28%; aspect-ratio: 1; border: 1px dashed #333; border-radius: 50%; pointer-events: none; }
+.target.busy .reticle { visibility: hidden; }
+
+.controls { display: grid; gap: 12px; }
+.row { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; }
+label { color: var(--mut); font-size: 13px; display: flex; gap: 8px; align-items: center; }
+input[type=range] { accent-color: var(--led); width: 140px; }
+input[type=checkbox] { accent-color: var(--led); }
+.unitval { font: 500 13px/1 var(--mono); color: var(--fg); min-width: 9ch; }
+.figures { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.figures div { border-top: 1px solid var(--line); padding-top: 8px; }
+.figures b { display: block; font: 500 17px/1.2 var(--mono); font-variant-numeric: tabular-nums; }
+.figures small { color: var(--mut); font-size: 12px; }
+
+.progress { height: 6px; background: var(--off); border-radius: 3px; overflow: hidden; }
+.progress i { display: block; height: 100%; width: 0; background: var(--led); }
+.status { font: 13px/1.4 var(--mono); color: var(--mut); min-height: 1.4em; overflow-wrap: anywhere; }
+.status.ok { color: var(--ok); }
+.status.bad { color: var(--bad); }
+
+.steps { margin: 0; padding-left: 20px; color: var(--mut); display: grid; gap: 4px; font-size: 14px; }
+.steps b { color: var(--fg); font-weight: 600; }
+
+/* full-screen target */
+.overlay {
+  position: fixed; inset: 0; background: #000; z-index: 50; display: grid; place-items: center;
+}
+.overlay.white { background: #fff; }
+.overlay .ostop {
+  position: absolute; right: calc(12px + env(safe-area-inset-right, 0px)); top: calc(12px + env(safe-area-inset-top, 0px));
+  background: #222; color: #ccc; border-color: #444;
+}
+.overlay .ostatus {
+  position: absolute; left: calc(12px + env(safe-area-inset-left, 0px)); bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  font: 12px/1.4 var(--mono); color: #666; background: #000; padding: 4px 8px; border-radius: 4px;
+}
+
+/* code export */
+details { border-top: 1px solid var(--line); padding-top: 12px; }
+summary { cursor: pointer; font: 600 12px/1 var(--display); letter-spacing: .14em; text-transform: uppercase; color: var(--mut); }
+pre {
+  margin: 10px 0 0; font: 12px/1.45 var(--mono); background: var(--bg); border: 1px solid var(--line);
+  border-radius: 6px; padding: 12px; overflow-x: auto; max-height: 260px;
+}
+@media (prefers-reduced-motion: reduce) { .cell { transition: none; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>POV Sword Uplink</h1>
+    <p>Draw a 12×12 image and flash it into the sword's light sensor.</p>
+  </header>
+
+  <div class="bench">
+    <section class="panel" aria-labelledby="h-draw">
+      <h2 id="h-draw">Image</h2>
+      <div class="editor">
+        <div class="grid" id="grid" role="grid" aria-label="12 by 12 image, click or drag to draw"></div>
+        <div class="parity" id="parity" aria-label="Row parity bits"></div>
+      </div>
+      <div class="legend"><span>Row by row, top to bottom, left to right</span><span>P = parity bit</span></div>
+      <div class="tools">
+        <button id="b-clear">Clear</button>
+        <button id="b-invert">Invert</button>
+        <button id="b-flip">Mirror</button>
+        <span class="sep" aria-hidden="true"></span>
+        <button class="sym" id="b-left" aria-label="Shift left">←</button>
+        <button class="sym" id="b-right" aria-label="Shift right">→</button>
+        <button class="sym" id="b-up" aria-label="Shift up">↑</button>
+        <button class="sym" id="b-down" aria-label="Shift down">↓</button>
+      </div>
+      <div class="tools" aria-label="Examples">
+        <button data-preset="heart">Heart</button>
+        <button data-preset="smiley">Smiley</button>
+        <button data-preset="arrow">Arrow</button>
+        <button data-preset="border">Border</button>
+      </div>
+      <details>
+        <summary>Copy as code</summary>
+        <p style="margin:10px 0 0;color:var(--mut);font-size:13px">Paste into <code>cycle_pov_sword.ino</code> in place of <code>userImage</code> to make this the built-in fallback image.</p>
+        <pre id="code"></pre>
+        <div class="row" style="margin-top:8px"><button id="b-copy">Copy</button><span class="status" id="copy-status"></span></div>
+      </details>
+    </section>
+
+    <section class="panel" aria-labelledby="h-tx">
+      <h2 id="h-tx">Transmit</h2>
+      <div class="target" id="target">
+        <span class="reticle" aria-hidden="true"></span>
+        <span class="hint">Hold the LDR flat<br>against this square</span>
+      </div>
+      <div class="controls">
+        <div class="row">
+          <button class="primary" id="b-tx">Transmit</button>
+          <button id="b-stop" disabled>Stop</button>
+          <button id="b-full">Full screen</button>
+        </div>
+        <div class="progress" aria-hidden="true"><i id="bar"></i></div>
+        <p class="status" id="status" role="status">Ready.</p>
+        <div class="row">
+          <label for="unit">Unit</label>
+          <input id="unit" type="range" min="2" max="6" value="6">
+          <span class="unitval" id="unit-val"></span>
+          <label><input id="loop" type="checkbox"> Repeat</label>
+        </div>
+        <div class="figures">
+          <div><b id="f-time">–</b><small>total time</small></div>
+          <div><b id="f-b0">–</b><small>bit 0 pulse gap</small></div>
+          <div><b id="f-b1">–</b><small>bit 1 pulse gap</small></div>
+        </div>
+      </div>
+      <ol class="steps">
+        <li>Switch the sword on and turn screen brightness all the way up.</li>
+        <li>Press <b>Transmit</b>, then hold the <b>LDR</b> flat on the square within 3 s. Keep this tab in front.</li>
+        <li>The light bar appears when the sword picks up the signal. Three blinks mean the image was received.</li>
+        <li>If it fails, try a larger <b>Unit</b>.</li>
+      </ol>
+    </section>
+  </div>
+</div>
+
+<div class="overlay" id="overlay" hidden>
+  <button class="ostop" id="b-ostop">Stop</button>
+  <span class="ostatus" id="ostatus"></span>
+</div>
+
+<script>
+/* ============================================================================
+   WIRE FORMAT — identical to pov-sword-sender.html and pov_protocol.h.
+   Symbol = MARK (1 unit white) + GAP (N units black), timed onset-to-onset:
+     bit 0 = 2u, bit 1 = 3u, ROW = 4u, LEADER/END = 6u.
+   1 dark hold, 2 handshake 10 x (15 white + 15 black frames), 3 30-frame dark
+   boundary, 4 training 01010101, 5 LEADER, 6 12 x (ROW, 12 bits, parity),
+   7 END, 8 dark hold. Frames are ticked at most 60 times a second.
+   ========================================================================== */
+const N = 12;
+// 10 handshake cycles (the original page sends 6): 5 s to put the sword on the
+// square after pressing Transmit. The sword needs 4 of them to lock.
+const HS_HALF = 15, HS_CYCLES = 10, BOUNDARY = 30, LEAD_HOLD = 30;
+const GAP = { b0: 1, b1: 2, row: 3, lead: 5 };
+const FPS = 60;
+
+let grid = Array.from({ length: N }, () => Array(N).fill(0));
+
+// Parity bit as the original sender computes it. Note this makes the total
+// number of ones in the 13 bits ODD; the receiver checks for that.
+const parityBit = row => (row.reduce((a, b) => a + b, 0) & 1) ? 0 : 1;
+
+function buildSchedule(U) {
+  const s = [];
+  const run = (v, n, tag) => { if (n > 0) s.push({ v, n, tag }); };
+  const sym = (gap, tag) => { run(1, U, tag); run(0, gap * U, tag); };
+  const bit = (b, tag) => sym(b ? GAP.b1 : GAP.b0, tag);
+
+  run(0, LEAD_HOLD, 'Dark hold');
+  for (let c = 0; c < HS_CYCLES; c++) { run(1, HS_HALF, 'Handshake'); run(0, HS_HALF, 'Handshake'); }
+  run(0, BOUNDARY, 'Boundary');
+  for (const b of [0, 1, 0, 1, 0, 1, 0, 1]) bit(b, 'Training');
+  sym(GAP.lead, 'Leader');
+  for (let r = 0; r < N; r++) {
+    const tag = 'Row ' + (r + 1) + ' of 12';
+    sym(GAP.row, tag);
+    for (let c = 0; c < N; c++) bit(grid[r][c], tag);
+    bit(parityBit(grid[r]), tag);
+  }
+  sym(GAP.lead, 'End');
+  run(0, LEAD_HOLD, 'Dark hold');
+  return s;
+}
+
+/* ---- transmitter ---- */
+const $ = id => document.getElementById(id);
+const target = $('target'), overlay = $('overlay');
+let tx = null, wakeLock = null;
+
+function setLight(v) {
+  target.classList.toggle('white', !!v);
+  overlay.classList.toggle('white', !!v);
+}
+function setStatus(text, cls) {
+  $('status').textContent = text;
+  $('status').className = 'status' + (cls ? ' ' + cls : '');
+  $('ostatus').textContent = text;
+}
+
+async function startTx() {
+  const U = +$('unit').value;
+  const runs = buildSchedule(U);
+  tx = { runs, U, idx: 0, inRun: 0, frame: 0, total: runs.reduce((a, r) => a + r.n, 0), last: 0, loop: $('loop').checked };
+  target.classList.add('busy');
+  $('b-tx').disabled = true; $('b-stop').disabled = false;
+  setStatus('Starting…');
+  try { wakeLock = await navigator.wakeLock?.request('screen'); } catch (e) { wakeLock = null; }
+  requestAnimationFrame(tick);
+}
+
+function stopTx(msg, cls) {
+  tx = null;
+  setLight(0);
+  target.classList.remove('busy');
+  $('b-tx').disabled = false; $('b-stop').disabled = true;
+  $('bar').style.width = '0';
+  setStatus(msg || 'Stopped.', cls);
+  try { wakeLock?.release(); } catch (e) {}
+  wakeLock = null;
+}
+
+function tick(ts) {
+  if (!tx) return;
+  requestAnimationFrame(tick);
+  // Cap at ~60 frames/s, like p5's frameRate(60), so 120 Hz screens send the same timing.
+  if (tx.last && ts - tx.last < 1000 / FPS - 3) return;
+  tx.last = ts;
+
+  if (tx.idx >= tx.runs.length) {
+    if (tx.loop) { tx.idx = 0; tx.inRun = 0; tx.frame = 0; }
+    else { stopTx('Sent. The sword shows the image if it was received.', 'ok'); closeFull(); return; }
+  }
+  const run = tx.runs[tx.idx];
+  setLight(run.v);
+  $('bar').style.width = (100 * tx.frame / tx.total).toFixed(1) + '%';
+  if (tx.inRun === 0) setStatus('Sending: ' + run.tag);
+  tx.frame++;
+  if (++tx.inRun >= run.n) { tx.inRun = 0; tx.idx++; }
+}
+
+// A hidden tab stops animation frames and would corrupt the timing.
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && tx) stopTx('Stopped: the tab went to the background. Keep it in front and send again.', 'bad');
+});
+
+function openFull() {
+  overlay.hidden = false;
+  try { overlay.requestFullscreen?.().catch(() => {}); } catch (e) {}
+}
+function closeFull() {
+  overlay.hidden = true;
+  try { if (document.fullscreenElement) document.exitFullscreen(); } catch (e) {}
+}
+
+function updateFigures() {
+  const U = +$('unit').value;
+  const ms = f => Math.round(f * 1000 / FPS);
+  const frames = buildSchedule(U).reduce((a, r) => a + r.n, 0);
+  $('unit-val').textContent = U + ' frames';
+  $('f-time').textContent = (frames / FPS).toFixed(1) + ' s';
+  $('f-b0').textContent = ms(2 * U) + ' ms';
+  $('f-b1').textContent = ms(3 * U) + ' ms';
+}
+
+/* ---- editor ---- */
+const gridEl = $('grid'), parityEl = $('parity');
+const cells = [];
+for (let r = 0; r < N; r++) {
+  for (let c = 0; c < N; c++) {
+    const b = document.createElement('button');
+    b.className = 'cell'; b.dataset.r = r; b.dataset.c = c; b.tabIndex = r === 0 && c === 0 ? 0 : -1;
+    b.setAttribute('aria-label', 'Row ' + (r + 1) + ', column ' + (c + 1));
+    gridEl.appendChild(b); cells.push(b);
+  }
+  parityEl.appendChild(document.createElement('span'));
+}
+
+let painting = null;
+function paintAt(el) {
+  if (!el || !el.classList.contains('cell')) return;
+  const r = +el.dataset.r, c = +el.dataset.c;
+  if (grid[r][c] !== painting) { grid[r][c] = painting; render(); }
+}
+gridEl.addEventListener('pointerdown', e => {
+  const el = e.target.closest('.cell'); if (!el) return;
+  e.preventDefault();
+  painting = grid[+el.dataset.r][+el.dataset.c] ? 0 : 1;
+  gridEl.setPointerCapture(e.pointerId);
+  paintAt(el);
+});
+gridEl.addEventListener('pointermove', e => {
+  if (painting === null) return;
+  paintAt(document.elementFromPoint(e.clientX, e.clientY));
+});
+const endPaint = () => { if (painting !== null) { painting = null; save(); } };
+gridEl.addEventListener('pointerup', endPaint);
+gridEl.addEventListener('pointercancel', endPaint);
+gridEl.addEventListener('keydown', e => {
+  const el = e.target.closest('.cell'); if (!el) return;
+  let r = +el.dataset.r, c = +el.dataset.c;
+  const k = e.key;
+  if (k === ' ' || k === 'Enter') { grid[r][c] ^= 1; render(); save(); e.preventDefault(); return; }
+  if (k === 'ArrowLeft') c = Math.max(0, c - 1); else if (k === 'ArrowRight') c = Math.min(N - 1, c + 1);
+  else if (k === 'ArrowUp') r = Math.max(0, r - 1); else if (k === 'ArrowDown') r = Math.min(N - 1, r + 1);
+  else return;
+  e.preventDefault();
+  el.tabIndex = -1; const next = cells[r * N + c]; next.tabIndex = 0; next.focus();
+});
+
+function render() {
+  for (let r = 0; r < N; r++) {
+    for (let c = 0; c < N; c++) {
+      const cell = cells[r * N + c];
+      cell.classList.toggle('on', !!grid[r][c]);
+      cell.setAttribute('aria-pressed', grid[r][c] ? 'true' : 'false');
+    }
+    const p = parityEl.children[r], bit = parityBit(grid[r]);
+    p.textContent = bit; p.classList.toggle('one', !!bit);
+  }
+  $('code').textContent = toCode();
+  if (!tx) updateFigures();
+}
+
+// Same format as the bitmaps in cycle_pov_sword.ino: one word per column,
+// bit 11 = top row, bit 0 = bottom row, plus two blank columns as a gap.
+function toCode() {
+  const lines = [];
+  for (let c = 0; c < N + 2; c++) {
+    let w = 0;
+    if (c < N) for (let r = 0; r < N; r++) if (grid[r][c]) w |= 1 << (N - 1 - r);
+    const hex = '0x' + w.toString(16).toUpperCase().padStart(3, '0');
+    const bin = w.toString(2).padStart(12, '0');
+    lines.push('  ' + hex + (c < N + 1 ? ', ' : '  ') + ' // 0b' + bin);
+  }
+  return '// 14 columns\nconst uint16_t userImage[14] PROGMEM = {\n' + lines.join('\n') + '\n};';
+}
+
+const set = rows => { grid = rows.map(s => [...s].map(ch => ch === '#' ? 1 : 0)); render(); save(); };
+const PRESETS = {
+  heart: ['............', '..##....##..', '.####..####.', '############', '############', '############',
+          '.##########.', '..########..', '...######...', '....####....', '.....##.....', '............'],
+  smiley: ['...######...', '..#......#..', '.#........#.', '#..##..##..#', '#..##..##..#', '#..........#',
+           '#..........#', '#.#......#.#', '#..#....#..#', '.#..####..#.', '..#......#..', '...######...'],
+  arrow: ['............', '......#.....', '......##....', '......###...', '#########...', '##########..',
+          '##########..', '#########...', '......###...', '......##....', '......#.....', '............'],
+  border: ['############', '#..........#', '#..........#', '#..........#', '#..........#', '#..........#',
+           '#..........#', '#..........#', '#..........#', '#..........#', '#..........#', '############'],
+};
+
+function shift(dr, dc) {
+  const g = Array.from({ length: N }, () => Array(N).fill(0));
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+    const rr = r + dr, cc = c + dc;
+    if (rr >= 0 && rr < N && cc >= 0 && cc < N) g[rr][cc] = grid[r][c];
+  }
+  grid = g; render(); save();
+}
+
+function save() {
+  try { localStorage.setItem('pov-grid', JSON.stringify(grid)); localStorage.setItem('pov-unit', $('unit').value); } catch (e) {}
+}
+function load() {
+  try {
+    const g = JSON.parse(localStorage.getItem('pov-grid'));
+    if (Array.isArray(g) && g.length === N) { grid = g.map(r => r.map(v => v ? 1 : 0)); return true; }
+  } catch (e) {}
+  return false;
+}
+
+$('b-clear').onclick = () => { grid = grid.map(r => r.map(() => 0)); render(); save(); };
+$('b-invert').onclick = () => { grid = grid.map(r => r.map(v => v ? 0 : 1)); render(); save(); };
+$('b-flip').onclick = () => { grid = grid.map(r => r.slice().reverse()); render(); save(); };
+$('b-left').onclick = () => shift(0, -1);
+$('b-right').onclick = () => shift(0, 1);
+$('b-up').onclick = () => shift(-1, 0);
+$('b-down').onclick = () => shift(1, 0);
+document.querySelectorAll('[data-preset]').forEach(b => b.onclick = () => set(PRESETS[b.dataset.preset]));
+$('b-copy').onclick = () => {
+  const text = $('code').textContent;
+  navigator.clipboard.writeText(text).then(
+    () => { $('copy-status').textContent = 'Copied.'; },
+    () => {
+      const range = document.createRange(); range.selectNodeContents($('code'));
+      const sel = getSelection(); sel.removeAllRanges(); sel.addRange(range);
+      $('copy-status').textContent = 'Selected. Press Ctrl+C or ⌘C to copy.';
+    });
+};
+
+$('b-tx').onclick = startTx;
+$('b-stop').onclick = () => stopTx();
+$('b-full').onclick = openFull;
+$('b-ostop').onclick = () => { if (tx) stopTx(); closeFull(); };
+$('unit').oninput = () => { updateFigures(); save(); };
+
+try { const u = localStorage.getItem('pov-unit'); if (u) $('unit').value = u; } catch (e) {}
+if (!load()) grid = PRESETS.heart.map(s => [...s].map(ch => ch === '#' ? 1 : 0));
+render();
+</script>

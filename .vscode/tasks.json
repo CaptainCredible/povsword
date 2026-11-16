@@ -1,0 +1,42 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "deployPovsword",
+      "type": "shell",
+      "command": "tools/publish.sh",
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "focus": true, "panel": "dedicated" }
+    },
+    {
+      "label": "deployPovsword (also overwrite server config.php)",
+      "type": "shell",
+      "command": "tools/publish.sh --config",
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "focus": true, "panel": "dedicated" }
+    },
+    {
+      "label": "deployPovsword (also delete removed files)",
+      "type": "shell",
+      "command": "tools/publish.sh --delete",
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "focus": true, "panel": "dedicated" }
+    },
+    {
+      // platformio.ini lives in cycle_pov_sword/, so pio needs -d from here.
+      // Full path to pio: the PlatformIO extension's install isn't always on PATH.
+      "label": "uploadSword",
+      "type": "shell",
+      "command": "${userHome}/.platformio/penv/bin/pio run -d cycle_pov_sword -t upload",
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "focus": true, "panel": "dedicated" }
+    },
+    {
+      "label": "uploadSword: set fuses (once per new chip)",
+      "type": "shell",
+      "command": "${userHome}/.platformio/penv/bin/pio run -d cycle_pov_sword -t fuses",
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "focus": true, "panel": "dedicated" }
+    }
+  ]
+}

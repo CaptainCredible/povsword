@@ -1,0 +1,1226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>LASERSWORD EDITOR!!</title>
+<style>
+/* Fonts are served from this site, not Google, so visitors' IPs stay here.
+   Both are variable fonts (SIL Open Font License, see fonts/OFL-*.txt). */
+@font-face {
+  font-family: "Jost"; font-style: normal; font-weight: 400 700; font-display: swap;
+  src: url(fonts/jost.woff2) format("woff2");
+}
+@font-face {
+  font-family: "JetBrains Mono"; font-style: normal; font-weight: 400 600; font-display: swap;
+  src: url(fonts/jetbrains-mono.woff2) format("woff2");
+}
+:root {
+  /* "Sith" palette: black and blood red. Dark only. */
+  color-scheme: dark;
+  --bg: #0b0707;
+  --panel: #160d0d;
+  --text: #f5e6e6;
+  --muted: #a07f7f;
+  --line: #3a1a1a;
+  --copper: #e0242c;          /* accent: primary buttons, hex values, focus ring */
+  --board: #050303;
+  --board-line: #2a1414;
+  --board-text: #8a6464;
+  --led-off: #261616;
+  --led-on: #ff2b2b;
+  --led-glow: rgba(255, 43, 43, 0.6);
+  --btn: #211212;
+  --btn-hover: #2e1919;
+  --code-bg: #0e0808;
+  --code-text: #f0dede;
+  --cell: 28px;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Futura, "Futura PT", "Jost", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 16px;
+  line-height: 1.45;
+}
+main { max-width: 1100px; margin: 0 auto; padding: 24px 20px 48px; }
+header { margin-bottom: 18px; text-align: center; }
+/* Font size is set by fitTitle() so the title spans the editor's width. */
+h1 { font-size: 2rem; font-weight: 700; margin: 0 0 0.1em; line-height: 1.05; white-space: nowrap; }
+h1 span { display: inline-block; }
+h2 { font-size: 1.05rem; font-weight: 600; margin: 0 0 10px; }
+
+.toolbar {
+  display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px 10px 0 0;
+  padding: 12px 14px;
+}
+.group { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+label { font-weight: 500; font-size: 0.95rem; }
+input[type="text"], input[type="number"] {
+  font: inherit; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 0.9rem;
+  color: var(--text); background: var(--bg); border: 1px solid var(--line);
+  border-radius: 6px; padding: 6px 8px;
+}
+input[type="text"] { width: 10rem; }
+input[type="number"] { width: 4.5rem; }
+button {
+  font: inherit; font-size: 0.92rem; font-weight: 500; color: var(--text);
+  background: var(--btn); border: 1px solid var(--line); border-radius: 6px;
+  padding: 6px 10px; cursor: pointer; white-space: nowrap;
+}
+button:hover { background: var(--btn-hover); }
+button.icon { width: 34px; padding: 6px 0; }
+button.primary { background: var(--copper); border-color: var(--copper); color: #fff; font-weight: 600; }
+button.primary:hover { filter: brightness(1.08); background: var(--copper); }
+:focus-visible { outline: 2px solid var(--copper); outline-offset: 2px; }
+
+.board-wrap {
+  background: var(--board); border: 1px solid var(--line); border-top: 0;
+  border-radius: 0 0 10px 10px; padding: 16px 14px 14px; overflow-x: auto;
+}
+.board {
+  display: grid; gap: 4px; width: max-content; margin: 0 auto;
+  user-select: none; -webkit-user-select: none; touch-action: none;
+}
+.lbl {
+  font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 10px;
+  color: var(--board-text); display: flex; align-items: center; justify-content: center;
+  min-height: 14px;
+}
+.lbl.row { justify-content: flex-end; padding-right: 6px; }
+.lbl.hex { color: var(--copper); font-size: 9.5px; padding-top: 4px; }
+.cell {
+  width: var(--cell); height: var(--cell); border-radius: 50%;
+  background: var(--led-off); cursor: crosshair; position: relative;
+  box-shadow: inset 0 -2px 0 rgba(0,0,0,0.25);
+}
+.cell.on {
+  background: radial-gradient(circle at 40% 35%, #fff2f2 0%, #ff9090 22%, var(--led-on) 55%);
+  box-shadow: 0 0 10px 2px var(--led-glow);
+}
+.col-sep { border-left: 1px dashed var(--board-line); }
+.hint { color: var(--muted); font-size: 0.9rem; margin: 8px 2px 0; }
+
+.panels { display: grid; grid-template-columns: 1fr; gap: 18px; margin-top: 22px; }
+@media (min-width: 860px) { .panels { grid-template-columns: 3fr 2fr; } }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; min-width: 0; }
+.panel-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+.panel-head h2 { margin: 0; }
+pre, textarea {
+  font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 0.82rem; line-height: 1.5;
+}
+pre {
+  margin: 0; background: var(--code-bg); color: var(--code-text);
+  padding: 12px 14px; border-radius: 8px; overflow-x: auto; max-height: 460px;
+}
+textarea {
+  width: 100%; min-height: 180px; resize: vertical; color: var(--text);
+  background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px;
+}
+.status { font-size: 0.9rem; color: var(--muted); min-height: 1.4em; margin-top: 8px; }
+.opts { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.92rem; margin-bottom: 10px; }
+.opts label { font-weight: 400; display: flex; gap: 6px; align-items: center; }
+.share { margin-top: 22px; }
+.export { margin-top: 18px; }
+.uplink { margin-top: 18px; }
+/* One line at 72px: size + time, preview, arrow, square, sword. A long
+   preview and the sword shrink (keeping their shape) to fit the width; the
+   sword, being decoration, gives way first. */
+.uplink-row { display: flex; gap: 14px; align-items: center; min-width: 0; }
+/* The light the sword's sensor (LDR) reads. Small: the LDR only needs to sit on it. */
+.tx-target {
+  flex: none; width: 72px; height: 72px; background: #000; border: 1px solid var(--line);
+  border-radius: 6px; display: grid; place-items: center;
+}
+.tx-target.white { background: #fff; }
+.tx-target .reticle { width: 45%; aspect-ratio: 1; border: 1px dashed #444; border-radius: 50%; }
+.tx-target.busy .reticle { visibility: hidden; }
+.tx-desc { flex: none; display: flex; flex-direction: column; line-height: 1.25; white-space: nowrap; }
+.tx-desc b { font-size: 1.15rem; }
+.tx-desc span { font-size: 0.85rem; color: var(--muted); }
+#txPreview { flex: 0 1 auto; min-width: 24px; }
+#txPreview canvas { display: block; width: 100%; height: auto; border-radius: 6px; background: var(--board); }
+.tx-arrow { flex: none; height: 72px; width: auto; aspect-ratio: 19.259766 / 16.736816; fill: #ff0000; }
+.tx-sword { flex: 0 3 auto; height: 72px; width: auto; min-width: 0; object-fit: contain; object-position: left center; }
+@media (max-width: 600px) {
+  .uplink-row { gap: 8px; }
+}
+.uplink .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 14px; }
+.uplink input[type="range"] { width: 7rem; accent-color: var(--copper); }
+.uplink .opts { margin: 0; align-items: center; }
+.uplink .how { font-size: 0.9rem; color: var(--muted); margin-right: 8px; }
+.uplink .how:hover { color: var(--text); }
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+.progress { height: 5px; background: var(--btn); border-radius: 3px; overflow: hidden; margin-top: 12px; }
+.progress i { display: block; height: 100%; width: 0; background: var(--copper); }
+.status.ok { color: var(--text); }
+.steps { margin: 8px 0 0; padding-left: 20px; color: var(--muted); font-size: 0.9rem; }
+.steps li { margin: 2px 0; }
+.steps b { color: var(--text); font-weight: 600; }
+.export summary {
+  display: flex; align-items: center; gap: 8px; cursor: pointer;
+  list-style: none; user-select: none; margin: -14px; padding: 14px;
+}
+.export summary::-webkit-details-marker { display: none; }
+.export summary::before {
+  content: "▶"; color: var(--muted); font-size: 0.75rem; width: 1em; text-align: center;
+  transition: transform 120ms;
+}
+.export[open] summary::before { transform: rotate(90deg); }
+.export summary h2 { margin: 0; }
+.export[open] summary { margin-bottom: 0; }
+.export .panel-head { margin-top: 12px; }
+.export .opts { margin-bottom: 0; }
+.swing { margin-top: 14px; }
+.swing canvas {
+  display: block; width: 100%; height: 320px;
+  background: var(--board); border-radius: 8px;
+}
+.swing .opts { margin: 10px 0 0; align-items: center; }
+.swing input[type="range"] { width: 8rem; accent-color: var(--copper); }
+.mine { margin-bottom: 14px; }
+.mine-head { font-size: 0.92rem; color: var(--muted); margin-bottom: 8px; }
+.mine-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+.mine-item { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.mine-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+.mine-item .del[aria-pressed="true"] { color: var(--text); border-color: var(--copper); }
+.mine-item .del { align-self: flex-start; font-size: 0.8rem; padding: 3px 8px; color: var(--muted); }
+.mine-item .del:hover { color: var(--text); }
+.fine { font-size: 0.85rem; color: var(--muted); margin: 6px 0 0; }
+.fine a, footer a { color: var(--muted); }
+footer { margin-top: 36px; text-align: center; font-size: 0.85rem; color: var(--muted); }
+.mine-list .card[aria-pressed="true"] { border-color: var(--copper); box-shadow: 0 0 0 2px var(--copper); }
+.card .yours { color: var(--copper); }
+.share-form { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; }
+.share-form input[type="text"], .share-form input[type="password"] { width: 12rem; }
+input[type="password"] {
+  font: inherit; font-size: 0.9rem; color: var(--text); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px;
+}
+.gallery-section { margin-top: 28px; }
+.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; }
+.card {
+  display: flex; flex-direction: column; gap: 6px; text-align: left; padding: 8px;
+  background: var(--panel); white-space: normal; border-radius: 10px; min-width: 0;
+}
+.card canvas {
+  display: block; width: 100%; height: 76px; object-fit: contain;
+  background: var(--board); border-radius: 6px;
+}
+.card .t { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card .m { font-size: 0.82rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.more { display: flex; justify-content: center; margin-top: 14px; }
+/* About three rows of cards, then the gallery scrolls inside its own box. */
+.gallery-scroll { max-height: 34rem; overflow-y: auto; overscroll-behavior: contain; padding-right: 4px; }
+@media (max-width: 600px) {
+  :root { --cell: 22px; }
+  .share-form input[type="text"], .share-form input[type="password"] { width: 100%; }
+  .share-form .group { width: 100%; }
+  main { padding: 16px 12px 40px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .cell { transition: background-color 60ms, box-shadow 60ms; }
+}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1><span id="title">LASERSWORD EDITOR!!</span></h1>
+  </header>
+
+  <div class="toolbar">
+    <div class="group">
+      <label for="name">Name</label>
+      <input id="name" type="text" spellcheck="false" autocomplete="off">
+    </div>
+    <div class="group">
+      <label for="cols">Columns</label>
+      <button class="icon" id="colsMinus" aria-label="Remove a column">−</button>
+      <input id="cols" type="number" min="1" max="256">
+      <button class="icon" id="colsPlus" aria-label="Add a column">+</button>
+    </div>
+    <div class="group" aria-label="Move image">
+      <button class="icon" id="shL" title="Rotate columns left" aria-label="Rotate columns left">◀</button>
+      <button class="icon" id="shR" title="Rotate columns right" aria-label="Rotate columns right">▶</button>
+      <button class="icon" id="shU" title="Shift up" aria-label="Shift up">▲</button>
+      <button class="icon" id="shD" title="Shift down" aria-label="Shift down">▼</button>
+    </div>
+    <div class="group">
+      <button id="flipH">Flip horizontal</button>
+      <button id="flipV">Flip vertical</button>
+      <button id="invert">Invert</button>
+      <button id="clear">Clear</button>
+      <button id="undo" title="Ctrl/Cmd + Z">Undo</button>
+    </div>
+  </div>
+  <div class="board-wrap">
+    <div class="board" id="board"></div>
+  </div>
+  <p class="hint">Click or drag to paint.</p>
+  <div class="status" id="editorStatus" role="status"></div>
+
+  <section class="panel swing">
+    <div class="panel-head">
+      <h2>Swing preview</h2>
+      <button id="swingPlay">Pause</button>
+    </div>
+    <canvas id="swingCanvas" aria-label="Your drawing as it appears when the sword is swung back and forth"></canvas>
+    <div class="opts">
+      <label>Swings per second <input type="range" id="swingSpeed" min="0.5" max="5" step="0.1" value="2"></label>
+      <label>Persistence <input type="range" id="swingFade" min="20" max="1000" step="10" value="400"></label>
+      <span class="fine" id="swingFadeVal"></span>
+      <label>ms per column <input type="number" id="swingColMs" min="1" max="50" value="5"></label>
+      <label><input type="checkbox" id="swingSlow"> Slow motion</label>
+    </div>
+  </section>
+
+  <section class="panel uplink">
+    <div class="panel-head">
+      <h2>Send to sword</h2>
+    </div>
+    <div class="uplink-row">
+      <div class="tx-desc">
+        <b id="txSize"></b>
+        <span id="txTime"></span>
+      </div>
+      <div id="txPreview" title="What the sword receives"></div>
+      <!-- The arrow from swordPictogram.svg, unmirrored so it points right. Same
+           viewBox height as that SVG, so at the same height it's the same size. -->
+      <svg class="tx-arrow" id="txArrow" viewBox="719.370117 410.769287 19.259766 16.736816" aria-hidden="true">
+        <path d="M738.629883,419L726.777832,425.842773L726.777832,422.209961L719.370117,422.209961L719.370117,415.790039L726.777832,415.790039L726.777832,412.157227L738.629883,419z"/>
+      </svg>
+      <div class="tx-target" id="txTarget" title="Hold the sword's light sensor flat against this square">
+        <span class="reticle" aria-hidden="true"></span>
+      </div>
+      <img class="tx-sword" src="assets/swordPictogram.svg" alt="">
+    </div>
+    <div class="actions">
+      <button class="primary" type="button" id="txStart">Transmit</button>
+      <button type="button" id="txStop" disabled>Stop</button>
+      <a class="how" href="how-it-works.html" target="_blank" rel="noopener">How does this work?</a>
+      <span class="opts">
+        <label for="txUnit">Transfer speed</label>
+        <span class="fine">faster (might fail)</span>
+        <input type="range" id="txUnit" min="2" max="6" value="6" aria-label="Transfer speed, from faster (might fail) to slower (safer)">
+        <span class="fine">slower (safer)</span>
+      </span>
+    </div>
+    <div class="progress" aria-hidden="true"><i id="txBar"></i></div>
+    <div class="status" id="txStatus" role="status">Ready.</div>
+    <ol class="steps">
+      <li>Switch the sword on and turn the screen brightness all the way up.</li>
+      <li>Press <b>Transmit</b>, then hold the sword's <b>light sensor</b> flat on the small square within 3 s. Keep this tab in front.</li>
+      <li>The light bar appears when the sword picks up the signal. Three blinks mean the image was received.</li>
+      <li>If it fails, move <b>Transfer speed</b> towards slower.</li>
+    </ol>
+  </section>
+
+  <section class="gallery-section">
+    <div class="panel-head">
+      <h2>Gallery</h2>
+      <button id="refresh">Refresh</button>
+    </div>
+    <div class="gallery-scroll" id="galleryScroll">
+      <div class="gallery" id="gallery"></div>
+      <div class="more"><button id="more" hidden>Load more</button></div>
+    </div>
+    <div class="status" id="galleryStatus" role="status"></div>
+  </section>
+
+  <section class="panel share">
+    <div class="panel-head">
+      <h2>Submit to gallery</h2>
+    </div>
+    <div class="mine" id="mineWrap" hidden>
+      <div class="mine-head" id="mineHead"></div>
+      <div class="mine-list" id="mineList"></div>
+    </div>
+    <form class="share-form" id="shareForm">
+      <div class="group">
+        <label for="author">Nickname</label>
+        <input id="author" type="text" maxlength="40" placeholder="optional" autocomplete="nickname">
+      </div>
+      <div class="group" id="secretGroup" hidden>
+        <label for="secret">Secret word</label>
+        <input id="secret" type="password" autocomplete="off">
+      </div>
+      <button class="primary" type="submit" id="submit">Submit drawing</button>
+    </form>
+    <div class="status" id="shareStatus" role="status"></div>
+    <p class="fine">Your drawing, title and nickname are shown publicly. Use a nickname, not your full name.
+      Submitting sets one cookie so you can replace or delete your drawings. <a href="privacy.php">Privacy</a></p>
+  </section>
+
+  <details class="panel export">
+    <summary><h2>Export code</h2></summary>
+    <div class="panel-head">
+      <div class="opts">
+        <label><input type="checkbox" id="optBin" checked> Binary comments</label>
+        <label><input type="checkbox" id="optCall" checked> scrollImage() line</label>
+      </div>
+      <div class="group">
+        <button id="dlPng">Download PNG</button>
+        <button class="primary" id="copy">Copy code</button>
+      </div>
+    </div>
+    <pre id="out"></pre>
+    <div class="status" id="copyStatus" role="status"></div>
+  </details>
+
+  <!-- Import: hidden for now, still wired up -->
+  <section class="panel" hidden>
+    <div class="panel-head">
+      <h2>Import</h2>
+      <button id="load">Load into editor</button>
+    </div>
+    <textarea id="importText" spellcheck="false" placeholder="Paste an array, e.g.&#10;const uint16_t smiley2[14] PROGMEM = {&#10;  0x3FC, 0x606, 0xC13, ...&#10;};"></textarea>
+    <div class="status" id="importStatus" role="status"></div>
+  </section>
+  <footer><a href="privacy.php">Privacy</a> · no tracking, no ads</footer>
+</main>
+
+<script>
+(function () {
+  const ROWS = 12, MASK = 0xFFF, MAX_COLS = 256;
+  const STORE_KEY = "pov-sword-editor-v1";
+  const DEFAULT = { name: "smiley2", data: [0,0,0x3FC,0x606,0xC13,0x9C9,0x809,0x809,0x9C9,0xC13,0x606,0x3FC,0,0] };
+
+  let state = load() || { name: DEFAULT.name, data: DEFAULT.data.slice() };
+  let swing = null;    // swing preview, set up further down
+  let uplink = null;   // send-to-sword transmitter, set up further down
+  const history = [];
+
+  const $ = id => document.getElementById(id);
+  const board = $("board"), out = $("out");
+  const nameIn = $("name"), colsIn = $("cols");
+
+  // ---------- persistence ----------
+  function load() {
+    try {
+      const raw = localStorage.getItem(STORE_KEY);
+      if (!raw) return null;
+      const s = JSON.parse(raw);
+      if (!s || !Array.isArray(s.data) || !s.data.length) return null;
+      return { name: String(s.name || "image"), data: s.data.map(v => (v | 0) & MASK) };
+    } catch (e) { return null; }
+  }
+  function save() {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) {}
+  }
+
+  // ---------- history ----------
+  function snapshot() {
+    history.push(JSON.stringify(state));
+    if (history.length > 200) history.shift();
+  }
+  function undo() {
+    if (!history.length) return;
+    state = JSON.parse(history.pop());
+    buildBoard(); update();
+  }
+
+  // ---------- board ----------
+  function buildBoard() {
+    const n = state.data.length;
+    board.style.gridTemplateColumns = `auto repeat(${n}, var(--cell))`;
+    const frag = document.createDocumentFragment();
+
+    // column numbers
+    frag.appendChild(el("div", "lbl"));
+    for (let c = 0; c < n; c++) frag.appendChild(el("div", "lbl", c % 2 === 0 ? String(c) : ""));
+
+    // rows: top = bit 11
+    for (let r = 0; r < ROWS; r++) {
+      const bit = ROWS - 1 - r;
+      frag.appendChild(el("div", "lbl row", String(bit)));
+      for (let c = 0; c < n; c++) {
+        const d = el("div", "cell");
+        d.dataset.c = c; d.dataset.b = bit;
+        frag.appendChild(d);
+      }
+    }
+
+    // hex row
+    frag.appendChild(el("div", "lbl"));
+    for (let c = 0; c < n; c++) {
+      const h = el("div", "lbl hex");
+      h.dataset.hex = c;
+      frag.appendChild(h);
+    }
+
+    board.replaceChildren(frag);
+  }
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text) e.textContent = text;
+    return e;
+  }
+
+  function refreshBoard() {
+    board.querySelectorAll(".cell").forEach(d => {
+      const on = (state.data[+d.dataset.c] >> +d.dataset.b) & 1;
+      d.classList.toggle("on", !!on);
+    });
+    board.querySelectorAll("[data-hex]").forEach(h => {
+      h.textContent = hex3(state.data[+h.dataset.hex]);
+    });
+  }
+
+  function update() {
+    nameIn.value = state.name;
+    colsIn.value = state.data.length;
+    refreshBoard();
+    renderCode();
+    save();
+  }
+
+  // ---------- painting ----------
+  let painting = false, paintOn = true, lastKey = "";
+  function setCell(d) {
+    const c = +d.dataset.c, b = +d.dataset.b;
+    const key = c + ":" + b;
+    if (key === lastKey) return;
+    lastKey = key;
+    const before = state.data[c];
+    state.data[c] = paintOn ? (before | (1 << b)) : (before & ~(1 << b));
+    if (state.data[c] !== before) {
+      d.classList.toggle("on", paintOn);
+      const h = board.querySelector(`[data-hex="${c}"]`);
+      if (h) h.textContent = hex3(state.data[c]);
+    }
+  }
+  board.addEventListener("pointerdown", e => {
+    const d = e.target.closest(".cell");
+    if (!d) return;
+    e.preventDefault();
+    snapshot();
+    painting = true;
+    lastKey = "";
+    paintOn = !((state.data[+d.dataset.c] >> +d.dataset.b) & 1);
+    setCell(d);
+  });
+  window.addEventListener("pointermove", e => {
+    if (!painting) return;
+    const t = document.elementFromPoint(e.clientX, e.clientY);
+    const d = t && t.closest && t.closest(".cell");
+    if (d && board.contains(d)) setCell(d);
+  });
+  const endPaint = () => {
+    if (!painting) return;
+    painting = false;
+    renderCode(); save();
+  };
+  window.addEventListener("pointerup", endPaint);
+  window.addEventListener("pointercancel", endPaint);
+
+  // ---------- operations ----------
+  function op(fn) { snapshot(); fn(); buildBoard(); update(); }
+
+  function resize(n) {
+    n = Math.max(1, Math.min(MAX_COLS, n | 0));
+    if (n === state.data.length) { colsIn.value = n; return; }
+    op(() => {
+      if (n < state.data.length) state.data.length = n;
+      else while (state.data.length < n) state.data.push(0);
+    });
+  }
+  const revBits = v => { let r = 0; for (let i = 0; i < ROWS; i++) if (v & (1 << i)) r |= 1 << (ROWS - 1 - i); return r; };
+
+  $("colsMinus").onclick = () => resize(state.data.length - 1);
+  $("colsPlus").onclick = () => resize(state.data.length + 1);
+  colsIn.addEventListener("change", () => resize(parseInt(colsIn.value, 10) || 1));
+  $("clear").onclick = () => op(() => state.data = state.data.map(() => 0));
+  $("invert").onclick = () => op(() => state.data = state.data.map(v => ~v & MASK));
+  $("flipH").onclick = () => op(() => state.data.reverse());
+  $("flipV").onclick = () => op(() => state.data = state.data.map(revBits));
+  $("shL").onclick = () => op(() => state.data.push(state.data.shift()));
+  $("shR").onclick = () => op(() => state.data.unshift(state.data.pop()));
+  $("shU").onclick = () => op(() => state.data = state.data.map(v => ((v << 1) | (v >> 11)) & MASK));
+  $("shD").onclick = () => op(() => state.data = state.data.map(v => ((v >> 1) | ((v & 1) << 11)) & MASK));
+  $("undo").onclick = undo;
+  document.addEventListener("keydown", e => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !/INPUT|TEXTAREA/.test(document.activeElement.tagName)) {
+      e.preventDefault(); undo();
+    }
+  });
+
+  nameIn.addEventListener("input", () => {
+    state.name = nameIn.value;
+    renderCode(); save();
+  });
+
+  // ---------- export ----------
+  function hex3(v) { return "0x" + v.toString(16).toUpperCase().padStart(3, "0"); }
+  function bin12(v) { return "0b" + v.toString(2).padStart(12, "0"); }
+  function cName() {
+    let n = (state.name || "").trim().replace(/[^A-Za-z0-9_]/g, "_");
+    if (!n) n = "image";
+    if (/^[0-9]/.test(n)) n = "_" + n;
+    return n;
+  }
+  // Always named userImage: that's the array the sketch's mode 1 shows, so the
+  // code pastes straight over it. The drawing's own name goes in the comment.
+  const ARRAY_NAME = "userImage";
+  function renderCode() {
+    const n = state.data.length, nm = ARRAY_NAME;
+    const title = (state.name || "").trim() || "untitled";
+    const withBin = $("optBin").checked, withCall = $("optCall").checked;
+    let s = `// "${title}", ${n} column${n === 1 ? "" : "s"}\nconst uint16_t ${nm}[${n}] PROGMEM = {\n`;
+    if (withBin) {
+      state.data.forEach((v, i) => {
+        const last = i === n - 1;
+        s += `  ${hex3(v)}${last ? " " : ","}  // ${bin12(v)}\n`;
+      });
+    } else {
+      for (let i = 0; i < n; i += 8) {
+        s += "  " + state.data.slice(i, i + 8).map(hex3).join(", ") + (i + 8 < n ? "," : "") + "\n";
+      }
+    }
+    s += "};\n";
+    if (withCall) s += `\n// scrollImage(${nm}, ${n}, 5);\n`;
+    out.textContent = s;
+    if (swing) swing.changed();
+    if (uplink) uplink.changed();
+  }
+  $("optBin").addEventListener("change", renderCode);
+  $("optCall").addEventListener("change", renderCode);
+
+  $("copy").onclick = async () => {
+    const text = out.textContent, st = $("copyStatus");
+    try {
+      await navigator.clipboard.writeText(text);
+      st.textContent = "Copied to clipboard.";
+    } catch (e) {
+      const range = document.createRange();
+      range.selectNodeContents(out);
+      const sel = getSelection(); sel.removeAllRanges(); sel.addRange(range);
+      st.textContent = "Clipboard blocked here. The code is selected; press Ctrl/Cmd + C.";
+    }
+    setTimeout(() => { if (st.textContent.startsWith("Copied")) st.textContent = ""; }, 2500);
+  };
+
+  // ---------- import ----------
+  $("load").onclick = () => {
+    const st = $("importStatus");
+    let text = $("importText").value;
+    const nameMatch = text.match(/uint16_t\s+([A-Za-z_]\w*)\s*\[/);
+    text = text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+    const brace = text.match(/\{([\s\S]*)\}/);
+    const body = brace ? brace[1] : text;
+    const tokens = body.match(/0x[0-9a-f]+|0b[01]+|\b\d+\b/gi) || [];
+    if (!tokens.length) {
+      st.textContent = "No numbers found. Paste values like 0x3FC, 0b001111111100 or 1020.";
+      return;
+    }
+    const vals = tokens.slice(0, MAX_COLS).map(t => {
+      const l = t.toLowerCase();
+      const v = l.startsWith("0x") ? parseInt(l.slice(2), 16) : l.startsWith("0b") ? parseInt(l.slice(2), 2) : parseInt(l, 10);
+      return v & MASK;
+    });
+    const clipped = tokens.length > MAX_COLS;
+    op(() => {
+      state.data = vals;
+      if (nameMatch) state.name = nameMatch[1];
+    });
+    st.textContent = `Loaded ${vals.length} column${vals.length === 1 ? "" : "s"}` +
+      (nameMatch ? ` as ${nameMatch[1]}` : "") + (clipped ? ` (cut to ${MAX_COLS}).` : ".");
+  };
+
+  // ---------- swing preview ----------
+  // Simulates waving the sword: the hand slides left and right while the blade
+  // tilts with it (fast in the middle, slowing at the ends), like a wide arm
+  // swing, while the firmware shows one column every colMs, looping the image
+  // like loop() does. Lit LEDs leave fading trails, like your eye or a
+  // long-exposure photo sees them.
+  swing = (() => {
+    const cv = $("swingCanvas"), g = cv.getContext("2d");
+    const MAX_TILT = 20 * Math.PI / 180;   // blade tilt each side of vertical
+    const STEP = 0.4;                      // simulation step, ms
+    let W = 0, H = 0, dpr = 1, cx = 0, cy = 0, r0 = 0, r1 = 0, pitch = 0;
+    let tilt = MAX_TILT, slide = 0;        // set by layout() to fill the canvas
+    let simT = 0, lastReal = 0, playing = true, visible = true, held = false, raf = 0;
+
+    const speed = () => parseFloat($("swingSpeed").value) || 2;
+    const colMs = () => Math.max(1, Math.min(50, parseFloat($("swingColMs").value) || 5));
+    const timeScale = () => $("swingSlow").checked ? 0.15 : 1;
+    // How long a trail takes to fade out completely, in ms of swing time (so
+    // slow motion slows the fading too, like filming it). Independent of the
+    // swing speed.
+    const persistence = () => Math.max(20, parseFloat($("swingFade").value) || 400);
+    const phase = t => Math.sin(2 * Math.PI * speed() * t / 1000);
+    // Position of LED radius r at time t: the pivot slides and the blade tilts in step.
+    const pos = (t, r) => {
+      const p = phase(t), a = tilt * p;
+      return [cx + slide * p + r * Math.sin(a), cy - r * Math.cos(a)];
+    };
+    const column = t => {
+      const d = state.data;
+      return d[Math.floor(t / colMs()) % d.length] || 0;
+    };
+    const color = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+    function layout() {
+      dpr = window.devicePixelRatio || 1;
+      W = cv.clientWidth; H = cv.clientHeight;
+      cv.width = Math.round(W * dpr);
+      cv.height = Math.round(H * dpr);
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      // The 12 LEDs span half the height, centred. The pivot (the hand) is well
+      // below them, so the blade only tilts a little; sliding covers the width.
+      const margin = 18, span = (H - 16) / 2;
+      pitch = span / (ROWS - 1);
+      r0 = span * 2;
+      r1 = r0 + span;
+      cx = W / 2;
+      cy = (H + span) / 2 + r0;
+      const reach = W / 2 - margin - pitch / 2;   // furthest the top LED may go
+      tilt = Math.min(MAX_TILT, Math.asin(Math.min(1, reach / r1)));
+      slide = Math.max(0, reach - r1 * Math.sin(tilt));
+    }
+
+    // Trails are redrawn from scratch every frame, each moment of the past
+    // `trailMs` dimmer the older it is, so they fade all the way to nothing.
+    // `fading` false draws the whole window at full brightness (the still).
+    const BANDS = 24;   // brightness levels the trail is drawn in
+    const period = () => 1000 / speed();
+    function render(trailMs, fading) {
+      g.clearRect(0, 0, W, H);
+      g.lineCap = "butt";   // round caps would overlap and double up where bands meet
+      const end = Math.floor(simT / STEP) * STEP;   // fixed sample grid: no shimmer
+      const steps = Math.ceil(trailMs / STEP), per = Math.ceil(steps / BANDS);
+      for (let k = BANDS - 1; k >= 0; k--) {        // oldest first, newest on top
+        const glow = new Path2D(), core = new Path2D();
+        let any = false;
+        for (let i = k * per; i < Math.min(steps, (k + 1) * per); i++) {
+          const t1 = end - i * STEP, t0 = t1 - STEP;
+          const v = column(t0);
+          if (!v) continue;
+          for (let b = 0; b < ROWS; b++) {
+            if (!((v >> b) & 1)) continue;
+            const r = r0 + b * pitch;   // bit 0 is nearest the hand
+            const p0 = pos(t0, r), p1 = pos(t1, r);
+            for (const p of [glow, core]) { p.moveTo(...p0); p.lineTo(...p1); }
+            any = true;
+          }
+        }
+        if (!any) continue;
+        g.globalAlpha = fading ? Math.pow(1 - k / BANDS, 2) : 1;
+        g.globalCompositeOperation = "lighter";
+        g.strokeStyle = "rgba(255, 43, 43, 0.18)";
+        g.lineWidth = pitch * 0.95;
+        g.stroke(glow);
+        g.globalCompositeOperation = "source-over";
+        g.strokeStyle = "#ff3d3d";
+        g.lineWidth = pitch * 0.42;
+        g.stroke(core);
+      }
+      g.globalAlpha = 1;
+
+      // The blade at this instant.
+      const at = r => pos(simT, r);
+      g.lineCap = "round";
+      g.strokeStyle = color("--board-line");
+      g.lineWidth = pitch * 1.1;
+      g.beginPath(); g.moveTo(...at(r0 - pitch)); g.lineTo(...at(r1 + pitch * 0.6)); g.stroke();
+      const v = column(simT), on = color("--led-on"), off = color("--led-off");
+      for (let b = 0; b < ROWS; b++) {
+        g.fillStyle = (v >> b) & 1 ? on : off;
+        g.beginPath(); g.arc(...at(r0 + b * pitch), pitch * 0.3, 0, Math.PI * 2); g.fill();
+      }
+    }
+
+    function frame(now) {
+      raf = 0;
+      if (!playing || !visible || held) return;
+      const dt = lastReal ? Math.min(50, now - lastReal) : 16;
+      lastReal = now;
+      simT += dt * timeScale();
+      render(persistence(), true);
+      raf = requestAnimationFrame(frame);
+    }
+    function start() {
+      if (raf || !playing || !visible || held) return;
+      lastReal = 0;
+      raf = requestAnimationFrame(frame);
+    }
+
+    // A still long exposure of one full stroke, for when it isn't animating.
+    function still() {
+      simT = period() * 1.25;   // just finished a stroke from one end to the other
+      render(period() / 2, false);
+    }
+
+    function setPlaying(p) {
+      playing = p;
+      $("swingPlay").textContent = p ? "Pause" : "Play";
+      if (p) start(); else if (raf) { cancelAnimationFrame(raf); raf = 0; }
+    }
+    $("swingPlay").onclick = () => setPlaying(!playing);
+    $("swingSpeed").addEventListener("input", () => { if (!playing) still(); });
+    const showFade = () => { $("swingFadeVal").textContent = persistence() + " ms"; };
+    $("swingFade").addEventListener("input", showFade);
+    showFade();
+    $("swingColMs").addEventListener("input", () => { if (!playing) still(); });
+
+    new ResizeObserver(() => { layout(); still(); }).observe(cv);
+    new IntersectionObserver(es => {
+      visible = es[0].isIntersecting;
+      start();
+    }).observe(cv);
+
+    layout();
+    setPlaying(!matchMedia("(prefers-reduced-motion: reduce)").matches);
+    still();
+
+    // Edits show up live while playing; when paused, redraw the still.
+    // hold() stops the animation while the sword uplink needs every frame.
+    return {
+      changed() { if (!playing) still(); },
+      hold(h) { held = h; if (h && raf) { cancelAnimationFrame(raf); raf = 0; } else start(); },
+    };
+  })();
+
+  // ---------- send to sword ----------
+  // Optical uplink to the cycle_pov_sword firmware: the image is blinked into
+  // the sword's light sensor (LDR) as white/black frames.
+  //
+  // WIRE FORMAT: identical to cycle_pov_sword/sender/index.html and
+  // cycle_pov_sword/pov_protocol.h; keep them in sync (the firmware's host
+  // test, test/host/test_rx.cpp, mirrors both frame types).
+  // Symbol = MARK (1 unit white) + GAP (N units black), timed onset-to-onset:
+  //   bit 0 = 2u, bit 1 = 3u, ROW = 4u, LEADER/END = 6u.
+  // 1 dark hold, 2 handshake 10 x (15 white + 15 black frames), 3 30-frame dark
+  // boundary, 4 training 01010101, 5 LEADER, then
+  //   square (12 columns or fewer; any firmware): 12 x (ROW, 12 bits, parity),
+  //     the image as 12x12 rows, top to bottom, left to right;
+  //   wide (13..250 columns; updated firmware only): a second LEADER, then
+  //     (ROW, 12-bit column count, parity), then per column (ROW, 12 bits top
+  //     pixel first, parity);
+  // 7 END, 8 dark hold. Frames are ticked at most 60 times a second.
+  uplink = (() => {
+    const N = 12, MAX_WIDE = 250;
+    const HS_HALF = 15, HS_CYCLES = 10, BOUNDARY = 30, LEAD_HOLD = 30;
+    const GAP = { b0: 1, b1: 2, row: 3, lead: 5 };
+    const FPS = 60;
+    const UNIT_KEY = "pov-sword-unit";
+    const target = $("txTarget"), unitIn = $("txUnit");
+    let tx = null, wakeLock = null;
+
+    // The editor's drawing as the columns the sword receives, with empty
+    // columns trimmed from both ends. Up to 12 columns are centred in a square
+    // 12x12 frame, which every firmware understands; wider drawings go as a
+    // wide frame of up to MAX_WIDE columns, and anything beyond is cut.
+    function columns() {
+      const d = state.data;
+      let a = 0, b = d.length - 1;
+      while (a <= b && !d[a]) a++;
+      while (b >= a && !d[b]) b--;
+      const used = a > b ? [] : d.slice(a, b + 1);
+      if (used.length > N) {
+        const cols = used.slice(0, MAX_WIDE);
+        return { cols, wide: true, cut: used.length - cols.length };
+      }
+      const pad = N - used.length, left = pad >> 1;
+      return { cols: Array(left).fill(0).concat(used, Array(pad - left).fill(0)), wide: false, cut: 0 };
+    }
+    // Columns (bit 11 = top row) -> rows, as the sword's imageColumn() expects.
+    const toGrid = cols =>
+      Array.from({ length: N }, (_, r) => cols.map(v => (v >> (N - 1 - r)) & 1));
+
+    // Parity bit as the original sender computes it: the 13 bits end up with an
+    // ODD number of ones, which the receiver checks for.
+    const parityBit = row => (row.reduce((a, b) => a + b, 0) & 1) ? 0 : 1;
+
+    // frame = columns(). The square frame goes as rows, the wide one as columns.
+    function buildSchedule(frame, U) {
+      const s = [];
+      const run = (v, n, tag) => { if (n > 0) s.push({ v, n, tag }); };
+      const sym = (gap, tag) => { run(1, U, tag); run(0, gap * U, tag); };
+      const bit = (b, tag) => sym(b ? GAP.b1 : GAP.b0, tag);
+
+      run(0, LEAD_HOLD, "Dark hold");
+      for (let c = 0; c < HS_CYCLES; c++) { run(1, HS_HALF, "Handshake"); run(0, HS_HALF, "Handshake"); }
+      run(0, BOUNDARY, "Boundary");
+      for (const b of [0, 1, 0, 1, 0, 1, 0, 1]) bit(b, "Training");
+      sym(GAP.lead, "Leader");
+      if (frame.wide) {
+        // 12 bits, top pixel first, then the parity bit.
+        const word = (w, tag) => {
+          const bits = Array.from({ length: N }, (_, i) => (w >> (N - 1 - i)) & 1);
+          sym(GAP.row, tag);
+          for (const b of bits) bit(b, tag);
+          bit(parityBit(bits), tag);
+        };
+        const n = frame.cols.length;
+        sym(GAP.lead, "Leader");          // second leader: a wide frame
+        word(n, "Column count");
+        frame.cols.forEach((w, c) => word(w, "Column " + (c + 1) + " of " + n));
+      } else {
+        const grid = toGrid(frame.cols);
+        for (let r = 0; r < N; r++) {
+          const tag = "Row " + (r + 1) + " of 12";
+          sym(GAP.row, tag);
+          for (let c = 0; c < N; c++) bit(grid[r][c], tag);
+          bit(parityBit(grid[r]), tag);
+        }
+      }
+      sym(GAP.lead, "End");
+      run(0, LEAD_HOLD, "Dark hold");
+      return s;
+    }
+
+    function setLight(v) {
+      target.classList.toggle("white", !!v);
+    }
+    function setStatus(text, ok) {
+      $("txStatus").textContent = text;
+      $("txStatus").classList.toggle("ok", !!ok);
+    }
+
+    function changed() {
+      const frame = columns();
+      const cv = drawBitmap(frame.cols, 12);
+      // 72px tall at full size; shrinks with its true aspect when space runs out.
+      $("txPreview").style.flexBasis = frame.cols.length * 6 + "px";
+      $("txPreview").replaceChildren(cv);
+      $("txSize").textContent = `12 × ${frame.cols.length}`;
+      $("txSize").title = "rows × columns" + (frame.cut > 0 ? ` (the last ${frame.cut} cut off: ${MAX_WIDE} is the most that fits)` : "");
+      if (!tx) {
+        const U = +unitIn.value;
+        const secs = buildSchedule(frame, U).reduce((a, r) => a + r.n, 0) / FPS;
+        $("txTime").textContent = secs < 90 ? `${secs.toFixed(0)} s` : `${(secs / 60).toFixed(1)} min`;
+      }
+    }
+
+    function start() {
+      const U = +unitIn.value;
+      const runs = buildSchedule(columns(), U);
+      tx = { runs, idx: 0, inRun: 0, frame: 0, total: runs.reduce((a, r) => a + r.n, 0), last: 0 };
+      target.classList.add("busy");
+      $("txStart").disabled = true; $("txStop").disabled = false;
+      if (swing) swing.hold(true);
+      setStatus("Starting…");
+      requestAnimationFrame(tick);
+      // Keep the screen awake, without waiting: the request can hang, and the
+      // blinking must not depend on it.
+      const run = tx;
+      navigator.wakeLock?.request("screen").then(l => {
+        if (tx === run) wakeLock = l; else l.release();
+      }).catch(() => {});
+    }
+
+    function stop(msg, ok) {
+      tx = null;
+      setLight(0);
+      target.classList.remove("busy");
+      $("txStart").disabled = false; $("txStop").disabled = true;
+      $("txBar").style.width = "0";
+      setStatus(msg || "Stopped.", ok);
+      if (swing) swing.hold(false);
+      try { wakeLock?.release(); } catch (e) {}
+      wakeLock = null;
+      changed();
+    }
+
+    function tick(ts) {
+      if (!tx) return;
+      requestAnimationFrame(tick);
+      // Cap at ~60 frames/s so 120 Hz screens send the same timing.
+      if (tx.last && ts - tx.last < 1000 / FPS - 3) return;
+      tx.last = ts;
+
+      if (tx.idx >= tx.runs.length) {
+        stop("Sent. The sword shows the image if it was received.", true);
+        return;
+      }
+      const run = tx.runs[tx.idx];
+      setLight(run.v);
+      $("txBar").style.width = (100 * tx.frame / tx.total).toFixed(1) + "%";
+      if (tx.inRun === 0) setStatus("Sending: " + run.tag);
+      tx.frame++;
+      if (++tx.inRun >= run.n) { tx.inRun = 0; tx.idx++; }
+    }
+
+    // A hidden tab stops animation frames and would corrupt the timing.
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden && tx) stop("Stopped: the tab went to the background. Keep it in front and send again.");
+    });
+
+    // Keep the arrow at the sword pictogram's scale: when the sword shrinks to
+    // fit a narrow screen, its drawn height drops below 72px, so match that.
+    const sword = document.querySelector(".tx-sword"), arrow = $("txArrow");
+    const SWORD_RATIO = 157.880127 / 16.736816;
+    const matchArrow = () => {
+      const h = Math.min(72, sword.clientWidth / SWORD_RATIO);
+      arrow.style.height = (h > 0 ? h : 72) + "px";
+    };
+    new ResizeObserver(matchArrow).observe(sword);
+
+    $("txStart").onclick = start;
+    $("txStop").onclick = () => stop();
+    unitIn.oninput = () => {
+      changed();
+      try { localStorage.setItem(UNIT_KEY, unitIn.value); } catch (e) {}
+    };
+    try { const u = localStorage.getItem(UNIT_KEY); if (u) unitIn.value = u; } catch (e) {}
+
+    return { changed };
+  })();
+
+  // ---------- downloads ----------
+  function download(blob, filename) {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+  $("dlPng").onclick = () => {
+    drawBitmap(state.data, 24).toBlob(b => b && download(b, cName() + ".png"), "image/png");
+  };
+
+  // Render a bitmap as LEDs on the board colour. Top row is bit 11.
+  function drawBitmap(data, cell) {
+    const css = getComputedStyle(document.documentElement);
+    const color = n => css.getPropertyValue(n).trim();
+    const cv = document.createElement("canvas");
+    cv.width = Math.max(1, data.length) * cell;
+    cv.height = ROWS * cell;
+    const g = cv.getContext("2d");
+    g.fillStyle = color("--board");
+    g.fillRect(0, 0, cv.width, cv.height);
+    const on = color("--led-on"), off = color("--led-off"), r = cell * 0.4;
+    data.forEach((v, c) => {
+      for (let b = 0; b < ROWS; b++) {
+        g.fillStyle = (v >> b) & 1 ? on : off;
+        g.beginPath();
+        g.arc(c * cell + cell / 2, (ROWS - 1 - b) * cell + cell / 2, r, 0, Math.PI * 2);
+        g.fill();
+      }
+    });
+    return cv;
+  }
+
+  // ---------- gallery ----------
+  const API = "api.php";
+  const SECRET_KEY = "pov-sword-secret", AUTHOR_KEY = "pov-sword-author";
+  const gallery = $("gallery"), moreBtn = $("more"), galStatus = $("galleryStatus");
+  let oldestId = 0, loadingGallery = false;
+
+  function loadIntoEditor(item) {
+    op(() => {
+      state.data = item.data.map(v => (v | 0) & MASK).slice(0, MAX_COLS);
+      state.name = item.name;
+    });
+    $("editorStatus").textContent = `Loaded #${item.id} “${item.name}” from the gallery.`;
+    window.scrollTo({ top: 0, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+  }
+
+  function card(item, markMine = true) {
+    const b = el("button", "card");
+    b.type = "button";
+    b.title = "Load into editor";
+    b.appendChild(drawBitmap(item.data, 8));
+    b.appendChild(el("div", "t", item.name || "untitled"));
+    const when = new Date(item.created * 1000).toLocaleDateString();
+    const m = el("div", "m", (item.author ? item.author + " · " : "") + when);
+    if (markMine && item.mine) m.appendChild(el("span", "yours", " · yours"));
+    b.appendChild(m);
+    b.onclick = () => loadIntoEditor(item);
+    return b;
+  }
+
+  async function loadGallery(reset) {
+    if (loadingGallery) return;
+    loadingGallery = true;
+    galStatus.textContent = "Loading…";
+    try {
+      const q = reset || !oldestId ? "" : "?before=" + oldestId;
+      const res = await fetch(API + q, { cache: "no-store" });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || res.statusText);
+      if (reset) { gallery.replaceChildren(); oldestId = 0; }
+      body.items.forEach(item => {
+        gallery.appendChild(card(item));
+        oldestId = item.id;
+      });
+      moreBtn.hidden = !body.more;
+      galStatus.textContent = gallery.children.length ? "" : "No drawings yet. Be the first!";
+    } catch (e) {
+      galStatus.textContent = "Couldn't load the gallery. " + (e.message || "");
+    } finally {
+      loadingGallery = false;
+    }
+  }
+  moreBtn.onclick = () => loadGallery(false);
+  // Scrolling to the bottom of the gallery loads the next page by itself.
+  new IntersectionObserver(es => {
+    if (es[0].isIntersecting && !moreBtn.hidden) loadGallery(false);
+  }, { root: $("galleryScroll"), rootMargin: "200px" }).observe(moreBtn);
+  $("refresh").onclick = () => loadGallery(true);
+
+  // ---------- submit ----------
+  // Each browser gets a few slots in the gallery. Once they're all used, a
+  // new drawing replaces one you pick from "Your drawings".
+  const secretIn = $("secret"), authorIn = $("author"), shareStatus = $("shareStatus");
+  let mine = { items: [], slots: 3, writesLeft: 1, needSecret: false };
+  let replaceId = 0;
+  try {
+    secretIn.value = localStorage.getItem(SECRET_KEY) || "";
+    authorIn.value = localStorage.getItem(AUTHOR_KEY) || "";
+  } catch (e) {}
+
+  const isFull = () => mine.items.length >= mine.slots;
+
+  function renderMine() {
+    const full = isFull();
+    if (!mine.items.some(i => i.id === replaceId)) replaceId = 0;
+    $("mineWrap").hidden = !mine.items.length;
+    $("mineHead").textContent = `Your drawings (${mine.items.length} of ${mine.slots})` +
+      (full ? ". All used: press Replace on one for your new drawing to take its place." : "");
+    // Clicking a drawing opens it in the editor (like the gallery); replacing
+    // has its own button so the two don't get mixed up.
+    $("mineList").replaceChildren(...mine.items.map(item => {
+      const b = card(item, false);
+      b.setAttribute("aria-pressed", String(full && item.id === replaceId));
+      const btns = el("div", "mine-btns");
+      if (full) {
+        const rep = el("button", "del", item.id === replaceId ? "Replacing this" : "Replace");
+        rep.type = "button";
+        rep.setAttribute("aria-pressed", String(item.id === replaceId));
+        rep.onclick = () => { replaceId = replaceId === item.id ? 0 : item.id; renderMine(); };
+        btns.append(rep);
+      }
+      const del = el("button", "del", "Delete");
+      del.type = "button";
+      del.onclick = () => deleteMine(item);
+      btns.append(del);
+      const wrap = el("div", "mine-item");
+      wrap.append(b, btns);
+      return wrap;
+    }));
+    $("submit").textContent = full && replaceId ? "Replace selected drawing" : "Submit drawing";
+    $("secretGroup").hidden = !mine.needSecret;
+  }
+
+  async function deleteMine(item) {
+    if (!confirm(`Delete “${item.name || "untitled"}” from the gallery? This can't be undone.`)) return;
+    try {
+      const res = await fetch(API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete", id: item.id }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "Couldn't delete it.");
+      shareStatus.textContent = `Deleted “${item.name || "untitled"}”.`;
+      loadMine();
+      loadGallery(true);
+    } catch (err) {
+      shareStatus.textContent = err.message || "Couldn't delete it.";
+    }
+  }
+
+  async function loadMine() {
+    try {
+      const res = await fetch(API + "?mine=1", { cache: "no-store" });
+      const body = await res.json();
+      if (res.ok) { mine = body; renderMine(); }
+    } catch (e) {}
+  }
+
+  $("shareForm").addEventListener("submit", async e => {
+    e.preventDefault();
+    const secret = secretIn.value.trim();
+    if (mine.needSecret && !secret) {
+      shareStatus.textContent = "Enter the secret word to submit.";
+      secretIn.focus();
+      return;
+    }
+    if (!state.data.some(v => v)) {
+      shareStatus.textContent = "Draw something first.";
+      return;
+    }
+    if (isFull() && !replaceId) {
+      shareStatus.textContent = `You already have ${mine.slots} drawings in the gallery. Press Replace on one of them first.`;
+      $("mineWrap").scrollIntoView({ block: "nearest" });
+      return;
+    }
+    const btn = $("submit"), replacing = replaceId;
+    btn.disabled = true;
+    shareStatus.textContent = "Submitting…";
+    try {
+      const res = await fetch(API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: state.name, author: authorIn.value, data: state.data,
+          replace: replacing || undefined, secret: secret || undefined,
+        }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (res.status === 403 && mine.needSecret) {
+          try { localStorage.removeItem(SECRET_KEY); } catch (e) {}
+        }
+        if (res.status === 409) await loadMine();   // slots filled up meanwhile
+        throw new Error(body.error || "Submission failed.");
+      }
+      try {
+        if (secret) localStorage.setItem(SECRET_KEY, secret);
+        localStorage.setItem(AUTHOR_KEY, authorIn.value);
+      } catch (e) {}
+      replaceId = 0;
+      shareStatus.textContent = `Submitted as #${body.id}` + (replacing ? ", replacing your old one." : ". Thanks!") +
+        (body.writesLeft <= 5 ? ` ${body.writesLeft} upload${body.writesLeft === 1 ? "" : "s"} left.` : "");
+      loadMine();
+      loadGallery(true);
+    } catch (err) {
+      shareStatus.textContent = err.message || "Submission failed.";
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // ---------- title ----------
+  // Scale the title so it spans exactly the width of the editor box below.
+  function fitTitle() {
+    const h1 = $("title").parentElement, span = $("title");
+    const avail = h1.clientWidth, base = 100;
+    h1.style.fontSize = base + "px";
+    const w = span.getBoundingClientRect().width;
+    if (w) h1.style.fontSize = (base * avail / w) + "px";
+  }
+  new ResizeObserver(fitTitle).observe(document.querySelector("header"));
+  if (document.fonts) document.fonts.ready.then(fitTitle);
+
+  // ---------- init ----------
+  buildBoard();
+  update();
+  loadGallery(true);
+  loadMine();
+
+  // index.html#id=12 opens that drawing (used by the admin page).
+  const deep = location.hash.match(/^#id=(\d+)$/);
+  if (deep) {
+    fetch(API + "?id=" + deep[1])
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(b => loadIntoEditor(b.item))
+      .catch(() => { $("editorStatus").textContent = "Couldn't find drawing #" + deep[1] + "."; });
+  }
+})();
+</script>
+</body>
+</html>

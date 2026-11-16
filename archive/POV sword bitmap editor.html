@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>POV sword bitmap editor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #e7edf1;
+  --panel: #ffffff;
+  --text: #13283d;
+  --muted: #587288;
+  --line: #c8d4de;
+  --copper: #a8761f;
+  --board: #17324c;
+  --board-line: #24496b;
+  --board-text: #8fb0cc;
+  --led-off: #2b4c6c;
+  --led-on: #ff3434;
+  --led-glow: rgba(255, 52, 52, 0.55);
+  --btn: #f1f5f8;
+  --btn-hover: #e1e9ef;
+  --code-bg: #0f2335;
+  --code-text: #d9e6f0;
+  --cell: 28px;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f2133; --panel: #16304a; --text: #e4edf4; --muted: #8ea8bf;
+    --line: #26476a; --copper: #d8a64e; --board: #0b1a29; --board-line: #1c3854;
+    --board-text: #6f90ad; --led-off: #1f3c58; --btn: #1d3b59; --btn-hover: #26496d;
+    --code-bg: #0a1826;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f2133; --panel: #16304a; --text: #e4edf4; --muted: #8ea8bf;
+  --line: #26476a; --copper: #d8a64e; --board: #0b1a29; --board-line: #1c3854;
+  --board-text: #6f90ad; --led-off: #1f3c58; --btn: #1d3b59; --btn-hover: #26496d;
+  --code-bg: #0a1826;
+}
+html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 16px;
+  line-height: 1.45;
+}
+main { max-width: 1100px; margin: 0 auto; padding: 24px 20px 48px; }
+header { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
+h1 { font-size: 1.75rem; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
+header p { margin: 0; color: var(--muted); max-width: 60ch; }
+h2 { font-size: 1.05rem; font-weight: 600; margin: 0 0 10px; }
+
+.toolbar {
+  display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px 10px 0 0;
+  padding: 12px 14px;
+}
+.group { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+label { font-weight: 500; font-size: 0.95rem; }
+input[type="text"], input[type="number"] {
+  font: inherit; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 0.9rem;
+  color: var(--text); background: var(--bg); border: 1px solid var(--line);
+  border-radius: 6px; padding: 6px 8px;
+}
+input[type="text"] { width: 10rem; }
+input[type="number"] { width: 4.5rem; }
+button {
+  font: inherit; font-size: 0.92rem; font-weight: 500; color: var(--text);
+  background: var(--btn); border: 1px solid var(--line); border-radius: 6px;
+  padding: 6px 10px; cursor: pointer; white-space: nowrap;
+}
+button:hover { background: var(--btn-hover); }
+button.icon { width: 34px; padding: 6px 0; }
+button.primary { background: var(--copper); border-color: var(--copper); color: #fff; font-weight: 600; }
+button.primary:hover { filter: brightness(1.08); background: var(--copper); }
+:focus-visible { outline: 2px solid var(--copper); outline-offset: 2px; }
+
+.board-wrap {
+  background: var(--board); border: 1px solid var(--line); border-top: 0;
+  border-radius: 0 0 10px 10px; padding: 16px 14px 14px; overflow-x: auto;
+}
+.board {
+  display: grid; gap: 4px; width: max-content;
+  user-select: none; -webkit-user-select: none; touch-action: none;
+}
+.lbl {
+  font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 10px;
+  color: var(--board-text); display: flex; align-items: center; justify-content: center;
+  min-height: 14px;
+}
+.lbl.row { justify-content: flex-end; padding-right: 6px; }
+.lbl.hex { color: var(--copper); font-size: 9.5px; padding-top: 4px; }
+.cell {
+  width: var(--cell); height: var(--cell); border-radius: 50%;
+  background: var(--led-off); cursor: crosshair; position: relative;
+  box-shadow: inset 0 -2px 0 rgba(0,0,0,0.25);
+}
+.cell.on {
+  background: radial-gradient(circle at 40% 35%, #fff2f2 0%, #ff8080 22%, var(--led-on) 55%);
+  box-shadow: 0 0 10px 2px var(--led-glow);
+}
+.col-sep { border-left: 1px dashed var(--board-line); }
+.hint { color: var(--muted); font-size: 0.9rem; margin: 8px 2px 0; }
+
+.panels { display: grid; grid-template-columns: 1fr; gap: 18px; margin-top: 22px; }
+@media (min-width: 860px) { .panels { grid-template-columns: 3fr 2fr; } }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; min-width: 0; }
+.panel-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+.panel-head h2 { margin: 0; }
+pre, textarea {
+  font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 0.82rem; line-height: 1.5;
+}
+pre {
+  margin: 0; background: var(--code-bg); color: var(--code-text);
+  padding: 12px 14px; border-radius: 8px; overflow-x: auto; max-height: 460px;
+}
+textarea {
+  width: 100%; min-height: 180px; resize: vertical; color: var(--text);
+  background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px;
+}
+.status { font-size: 0.9rem; color: var(--muted); min-height: 1.4em; margin-top: 8px; }
+.opts { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.92rem; margin-bottom: 10px; }
+.opts label { font-weight: 400; display: flex; gap: 6px; align-items: center; }
+@media (max-width: 600px) {
+  :root { --cell: 22px; }
+  main { padding: 16px 12px 40px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .cell { transition: background-color 60ms, box-shadow 60ms; }
+}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>POV sword bitmap editor</h1>
+    <p>Draw a 12-LED image column by column, then copy the PROGMEM array straight into your sketch.</p>
+  </header>
+
+  <div class="toolbar">
+    <div class="group">
+      <label for="name">Name</label>
+      <input id="name" type="text" spellcheck="false" autocomplete="off">
+    </div>
+    <div class="group">
+      <label for="cols">Columns</label>
+      <button class="icon" id="colsMinus" aria-label="Remove a column">−</button>
+      <input id="cols" type="number" min="1" max="256">
+      <button class="icon" id="colsPlus" aria-label="Add a column">+</button>
+    </div>
+    <div class="group" aria-label="Move image">
+      <button class="icon" id="shL" title="Rotate columns left" aria-label="Rotate columns left">◀</button>
+      <button class="icon" id="shR" title="Rotate columns right" aria-label="Rotate columns right">▶</button>
+      <button class="icon" id="shU" title="Shift up" aria-label="Shift up">▲</button>
+      <button class="icon" id="shD" title="Shift down" aria-label="Shift down">▼</button>
+    </div>
+    <div class="group">
+      <button id="flipH">Flip horizontal</button>
+      <button id="flipV">Flip vertical</button>
+      <button id="invert">Invert</button>
+      <button id="clear">Clear</button>
+      <button id="undo" title="Ctrl/Cmd + Z">Undo</button>
+    </div>
+  </div>
+  <div class="board-wrap">
+    <div class="board" id="board"></div>
+  </div>
+  <p class="hint">Click or drag to paint; starting on a lit LED erases instead. Top row is bit 11, bottom row is bit 0. Copper numbers are each column's hex value.</p>
+
+  <div class="panels">
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Export</h2>
+        <button class="primary" id="copy">Copy code</button>
+      </div>
+      <div class="opts">
+        <label><input type="checkbox" id="optBin" checked> Binary comments</label>
+        <label><input type="checkbox" id="optCall" checked> scrollImage() line</label>
+      </div>
+      <pre id="out"></pre>
+      <div class="status" id="copyStatus" role="status"></div>
+    </section>
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Import</h2>
+        <button id="load">Load into editor</button>
+      </div>
+      <textarea id="importText" spellcheck="false" placeholder="Paste an array, e.g.&#10;const uint16_t smiley2[14] PROGMEM = {&#10;  0x3FC, 0x606, 0xC13, ...&#10;};"></textarea>
+      <div class="status" id="importStatus" role="status"></div>
+    </section>
+  </div>
+</main>
+
+<script>
+(function () {
+  const ROWS = 12, MASK = 0xFFF, MAX_COLS = 256;
+  const STORE_KEY = "pov-sword-editor-v1";
+  const DEFAULT = { name: "smiley2", data: [0x3FC,0x606,0xC13,0x9C9,0x809,0x809,0x9C9,0xC13,0x606,0x3FC,0,0,0,0] };
+
+  let state = load() || { name: DEFAULT.name, data: DEFAULT.data.slice() };
+  const history = [];
+
+  const $ = id => document.getElementById(id);
+  const board = $("board"), out = $("out");
+  const nameIn = $("name"), colsIn = $("cols");
+
+  // ---------- persistence ----------
+  function load() {
+    try {
+      const raw = localStorage.getItem(STORE_KEY);
+      if (!raw) return null;
+      const s = JSON.parse(raw);
+      if (!s || !Array.isArray(s.data) || !s.data.length) return null;
+      return { name: String(s.name || "image"), data: s.data.map(v => (v | 0) & MASK) };
+    } catch (e) { return null; }
+  }
+  function save() {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) {}
+  }
+
+  // ---------- history ----------
+  function snapshot() {
+    history.push(JSON.stringify(state));
+    if (history.length > 200) history.shift();
+  }
+  function undo() {
+    if (!history.length) return;
+    state = JSON.parse(history.pop());
+    buildBoard(); update();
+  }
+
+  // ---------- board ----------
+  function buildBoard() {
+    const n = state.data.length;
+    board.style.gridTemplateColumns = `auto repeat(${n}, var(--cell))`;
+    const frag = document.createDocumentFragment();
+
+    // column numbers
+    frag.appendChild(el("div", "lbl"));
+    for (let c = 0; c < n; c++) frag.appendChild(el("div", "lbl", c % 2 === 0 ? String(c) : ""));
+
+    // rows: top = bit 11
+    for (let r = 0; r < ROWS; r++) {
+      const bit = ROWS - 1 - r;
+      frag.appendChild(el("div", "lbl row", String(bit)));
+      for (let c = 0; c < n; c++) {
+        const d = el("div", "cell");
+        d.dataset.c = c; d.dataset.b = bit;
+        frag.appendChild(d);
+      }
+    }
+
+    // hex row
+    frag.appendChild(el("div", "lbl"));
+    for (let c = 0; c < n; c++) {
+      const h = el("div", "lbl hex");
+      h.dataset.hex = c;
+      frag.appendChild(h);
+    }
+
+    board.replaceChildren(frag);
+  }
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text) e.textContent = text;
+    return e;
+  }
+
+  function refreshBoard() {
+    board.querySelectorAll(".cell").forEach(d => {
+      const on = (state.data[+d.dataset.c] >> +d.dataset.b) & 1;
+      d.classList.toggle("on", !!on);
+    });
+    board.querySelectorAll("[data-hex]").forEach(h => {
+      h.textContent = hex3(state.data[+h.dataset.hex]);
+    });
+  }
+
+  function update() {
+    nameIn.value = state.name;
+    colsIn.value = state.data.length;
+    refreshBoard();
+    renderCode();
+    save();
+  }
+
+  // ---------- painting ----------
+  let painting = false, paintOn = true, lastKey = "";
+  function setCell(d) {
+    const c = +d.dataset.c, b = +d.dataset.b;
+    const key = c + ":" + b;
+    if (key === lastKey) return;
+    lastKey = key;
+    const before = state.data[c];
+    state.data[c] = paintOn ? (before | (1 << b)) : (before & ~(1 << b));
+    if (state.data[c] !== before) {
+      d.classList.toggle("on", paintOn);
+      const h = board.querySelector(`[data-hex="${c}"]`);
+      if (h) h.textContent = hex3(state.data[c]);
+    }
+  }
+  board.addEventListener("pointerdown", e => {
+    const d = e.target.closest(".cell");
+    if (!d) return;
+    e.preventDefault();
+    snapshot();
+    painting = true;
+    lastKey = "";
+    paintOn = !((state.data[+d.dataset.c] >> +d.dataset.b) & 1);
+    setCell(d);
+  });
+  window.addEventListener("pointermove", e => {
+    if (!painting) return;
+    const t = document.elementFromPoint(e.clientX, e.clientY);
+    const d = t && t.closest && t.closest(".cell");
+    if (d && board.contains(d)) setCell(d);
+  });
+  const endPaint = () => {
+    if (!painting) return;
+    painting = false;
+    renderCode(); save();
+  };
+  window.addEventListener("pointerup", endPaint);
+  window.addEventListener("pointercancel", endPaint);
+
+  // ---------- operations ----------
+  function op(fn) { snapshot(); fn(); buildBoard(); update(); }
+
+  function resize(n) {
+    n = Math.max(1, Math.min(MAX_COLS, n | 0));
+    if (n === state.data.length) { colsIn.value = n; return; }
+    op(() => {
+      if (n < state.data.length) state.data.length = n;
+      else while (state.data.length < n) state.data.push(0);
+    });
+  }
+  const revBits = v => { let r = 0; for (let i = 0; i < ROWS; i++) if (v & (1 << i)) r |= 1 << (ROWS - 1 - i); return r; };
+
+  $("colsMinus").onclick = () => resize(state.data.length - 1);
+  $("colsPlus").onclick = () => resize(state.data.length + 1);
+  colsIn.addEventListener("change", () => resize(parseInt(colsIn.value, 10) || 1));
+  $("clear").onclick = () => op(() => state.data = state.data.map(() => 0));
+  $("invert").onclick = () => op(() => state.data = state.data.map(v => ~v & MASK));
+  $("flipH").onclick = () => op(() => state.data.reverse());
+  $("flipV").onclick = () => op(() => state.data = state.data.map(revBits));
+  $("shL").onclick = () => op(() => state.data.push(state.data.shift()));
+  $("shR").onclick = () => op(() => state.data.unshift(state.data.pop()));
+  $("shU").onclick = () => op(() => state.data = state.data.map(v => ((v << 1) | (v >> 11)) & MASK));
+  $("shD").onclick = () => op(() => state.data = state.data.map(v => ((v >> 1) | ((v & 1) << 11)) & MASK));
+  $("undo").onclick = undo;
+  document.addEventListener("keydown", e => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !/INPUT|TEXTAREA/.test(document.activeElement.tagName)) {
+      e.preventDefault(); undo();
+    }
+  });
+
+  nameIn.addEventListener("input", () => {
+    state.name = nameIn.value;
+    renderCode(); save();
+  });
+
+  // ---------- export ----------
+  function hex3(v) { return "0x" + v.toString(16).toUpperCase().padStart(3, "0"); }
+  function bin12(v) { return "0b" + v.toString(2).padStart(12, "0"); }
+  function cName() {
+    let n = (state.name || "").trim().replace(/[^A-Za-z0-9_]/g, "_");
+    if (!n) n = "image";
+    if (/^[0-9]/.test(n)) n = "_" + n;
+    return n;
+  }
+  function renderCode() {
+    const n = state.data.length, nm = cName();
+    const withBin = $("optBin").checked, withCall = $("optCall").checked;
+    let s = `// ${n} column${n === 1 ? "" : "s"}\nconst uint16_t ${nm}[${n}] PROGMEM = {\n`;
+    if (withBin) {
+      state.data.forEach((v, i) => {
+        const last = i === n - 1;
+        s += `  ${hex3(v)}${last ? " " : ","}  // ${bin12(v)}\n`;
+      });
+    } else {
+      for (let i = 0; i < n; i += 8) {
+        s += "  " + state.data.slice(i, i + 8).map(hex3).join(", ") + (i + 8 < n ? "," : "") + "\n";
+      }
+    }
+    s += "};\n";
+    if (withCall) s += `\n// scrollImage(${nm}, ${n}, 5);\n`;
+    out.textContent = s;
+  }
+  $("optBin").addEventListener("change", renderCode);
+  $("optCall").addEventListener("change", renderCode);
+
+  $("copy").onclick = async () => {
+    const text = out.textContent, st = $("copyStatus");
+    try {
+      await navigator.clipboard.writeText(text);
+      st.textContent = "Copied to clipboard.";
+    } catch (e) {
+      const range = document.createRange();
+      range.selectNodeContents(out);
+      const sel = getSelection(); sel.removeAllRanges(); sel.addRange(range);
+      st.textContent = "Clipboard blocked here. The code is selected; press Ctrl/Cmd + C.";
+    }
+    setTimeout(() => { if (st.textContent.startsWith("Copied")) st.textContent = ""; }, 2500);
+  };
+
+  // ---------- import ----------
+  $("load").onclick = () => {
+    const st = $("importStatus");
+    let text = $("importText").value;
+    const nameMatch = text.match(/uint16_t\s+([A-Za-z_]\w*)\s*\[/);
+    text = text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+    const brace = text.match(/\{([\s\S]*)\}/);
+    const body = brace ? brace[1] : text;
+    const tokens = body.match(/0x[0-9a-f]+|0b[01]+|\b\d+\b/gi) || [];
+    if (!tokens.length) {
+      st.textContent = "No numbers found. Paste values like 0x3FC, 0b001111111100 or 1020.";
+      return;
+    }
+    const vals = tokens.slice(0, MAX_COLS).map(t => {
+      const l = t.toLowerCase();
+      const v = l.startsWith("0x") ? parseInt(l.slice(2), 16) : l.startsWith("0b") ? parseInt(l.slice(2), 2) : parseInt(l, 10);
+      return v & MASK;
+    });
+    const clipped = tokens.length > MAX_COLS;
+    op(() => {
+      state.data = vals;
+      if (nameMatch) state.name = nameMatch[1];
+    });
+    st.textContent = `Loaded ${vals.length} column${vals.length === 1 ? "" : "s"}` +
+      (nameMatch ? ` as ${nameMatch[1]}` : "") + (clipped ? ` (cut to ${MAX_COLS}).` : ".");
+  };
+
+  // ---------- init ----------
+  buildBoard();
+  update();
+})();
+</script>
+</body>
+</html>
